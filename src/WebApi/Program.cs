@@ -48,16 +48,46 @@ try
 
     Action<IServiceProvider, DbContextOptionsBuilder> dbConfigure = (sp, options) =>
         options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()).UseSnakeCaseNamingConvention();
-    builder.Services.AddDbContext<AppDbContext>(dbConfigure, ServiceLifetime.Singleton);
-    builder.Services.AddPooledDbContextFactory<AppDbContext>(dbConfigure);
+
+    // AppDbContext is registered Scoped (the EF Core default) — never Singleton. A
+    // DbContext is not thread-safe, so a singleton would be shared across concurrent
+    // requests (e.g. the /health AddDbContextCheck below). The unit-of-work write path
+    // does not use this registration directly: it creates a fresh context per unit of
+    // work from the factory below.
+    //
+    // The factory is Scoped (not pooled). A pooled factory is itself a singleton, so it
+    // would have to resolve EF's now-Scoped IDbContextOptionsConfiguration<AppDbContext>
+    // from the root provider, which throws. Keeping the context and its factory both
+    // Scoped aligns the option-configuration lifetimes.
+    builder.Services.AddDbContext<AppDbContext>(dbConfigure);
+    builder.Services.AddDbContextFactory<AppDbContext>(dbConfigure, ServiceLifetime.Scoped);
     builder.Services.AddDistributedMemoryCache();
+
+    // Required by SimpleInjector's ASP.NET Core integration to resolve cross-wired
+    // *scoped* services (e.g. IDbContextFactory<AppDbContext>) from the active request's
+    // IServiceProvider. Without it those resolve from the root provider and trip MS-DI
+    // scope validation.
+    builder.Services.AddHttpContextAccessor();
 
     // SimpleInjector
     var container = Container;
-    container.Options.DefaultLifestyle = Lifestyle.Singleton;
+    // Scoped is the correct default lifestyle for a per-request web app: handlers,
+    // repositories and the unit-of-work factory resolve once per request instead of as
+    // process-wide singletons that would capture state across requests. The AspNetCore
+    // integration opens an async scope per request (and a verification scope for
+    // container.Verify()).
+    container.Options.DefaultLifestyle = Lifestyle.Scoped;
     builder.Services.AddSimpleInjector(
         container,
-        options => options.AddAspNetCore().AddControllerActivation()
+        options =>
+        {
+            options.AddAspNetCore().AddControllerActivation();
+
+            // IDbContextFactory<AppDbContext> is Scoped — cross-wire it explicitly so
+            // SimpleInjector resolves it from the active request scope. Auto cross-wiring
+            // resolves it from the root provider, which trips MS-DI's scope validation.
+            options.CrossWire<IDbContextFactory<AppDbContext>>();
+        }
     );
 
     container.Register<ICustomerReadRepository, CustomerReadRepository>();
@@ -104,8 +134,10 @@ try
     // to make sure that migrations are applied as a separate deploy step to prevent data corruption.
     if (app.Environment.IsDevelopment())
     {
-        var dbContextFactory = app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        var dbContext = await dbContextFactory.CreateDbContextAsync();
+        // AppDbContext is Scoped, so it must be resolved from a scope rather than the
+        // root provider.
+        await using var migrationScope = app.Services.CreateAsyncScope();
+        var dbContext = migrationScope.ServiceProvider.GetRequiredService<AppDbContext>();
         if (dbContext.Database.IsRelational())
         {
             // It will throw if the db is not relational
