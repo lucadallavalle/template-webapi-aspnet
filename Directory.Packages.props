@@ -8,25 +8,25 @@
     <GlobalPackageReference Include="IDisposableAnalyzers" Version="4.0.8" />
   </ItemGroup>
   <ItemGroup>
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageVersion>
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
-    <PackageVersion Include="Npgsql.DependencyInjection" Version="10.0.1" />
-    <PackageVersion Include="SimpleInjector" Version="5.5.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+    <PackageVersion Include="Npgsql.DependencyInjection" Version="10.0.3" />
+    <PackageVersion Include="SimpleInjector" Version="5.5.2" />
     <PackageVersion Include="SimpleInjector.Integration.AspNetCore.Mvc" Version="5.5.0" />
-    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.1.4" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="HumbleMediator" Version="1.1.1" />
-    <PackageVersion Include="Dapper" Version="2.1.35" />
+    <PackageVersion Include="Dapper" Version="2.1.79" />
     <PackageVersion Include="Dapper.Contrib" Version="2.0.78" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
-    <PackageVersion Include="Npgsql" Version="10.0.1" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
     <PackageVersion Include="Serilog" Version="4.3.1" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
