@@ -14,7 +14,8 @@ public class GetByIdTests(AppWebApplicationFactory factory) : BaseTestClass(fact
         await _factory.ResetDatabase();
         const int id = 23;
 
-        var contextFactory = _factory.Services.GetRequiredService<
+        await using var scope = _factory.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<
             IDbContextFactory<AppDbContext>
         >();
         await using var context = await contextFactory.CreateDbContextAsync();
@@ -22,7 +23,7 @@ public class GetByIdTests(AppWebApplicationFactory factory) : BaseTestClass(fact
         await context.SaveChangesAsync();
 
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync($"/api/customers/{id}");
+        using var response = await client.GetAsync($"/api/v1/customers/{id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -38,7 +39,7 @@ public class GetByIdTests(AppWebApplicationFactory factory) : BaseTestClass(fact
         const int id = 483930;
 
         using var client = _factory.CreateClient();
-        using var response = await client.GetAsync($"/api/customers/{id}");
+        using var response = await client.GetAsync($"/api/v1/customers/{id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }

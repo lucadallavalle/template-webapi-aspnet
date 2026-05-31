@@ -14,7 +14,8 @@ public class DeleteTests(AppWebApplicationFactory factory) : BaseTestClass(facto
         await _factory.ResetDatabase();
         const int id = 1278;
 
-        var contextFactory = _factory.Services.GetRequiredService<
+        await using var scope = _factory.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<
             IDbContextFactory<AppDbContext>
         >();
         await using var context = await contextFactory.CreateDbContextAsync();
@@ -22,7 +23,7 @@ public class DeleteTests(AppWebApplicationFactory factory) : BaseTestClass(facto
         await context.SaveChangesAsync();
 
         using var client = _factory.CreateClient();
-        using var response = await client.DeleteAsync($"/api/customers/{id}");
+        using var response = await client.DeleteAsync($"/api/v1/customers/{id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var allCustomers = await context.Customers.ToListAsync();
