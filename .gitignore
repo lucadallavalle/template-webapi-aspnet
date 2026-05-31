@@ -569,3 +569,13 @@ FodyWeavers.xsd
 
 ### VisualStudio Patch ###
 # Additional files built by Visual Studio
+
+# dotnet build sometimes creates directories with literal backslashes on Linux
+bin\\*
+
+# JetBrains IDE
+.idea/
+
+# Secrets
+.env
+.envrc
