@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet restore
+      - run: dotnet build -c Release --no-restore
+      # The integration tests spin up Postgres via Testcontainers and migrate on
+      # startup, so they need an EF migration to create the schema. This template
+      # ships no migration, so the step below is disabled by default. Once you have
+      # added your first migration (see README "Apply initial migration"), uncomment
+      # it to run the full suite in CI:
+      # - run: dotnet test -c Release --no-build
+
+  vulnerability-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # Run grype directly via its Docker image, pinned by sha256 digest. This avoids
+      # mutable tag aliases in the supply chain (checkout is pinned by commit SHA;
+      # grype by image digest — content-addressed, immutable). Digest below is
+      # anchore/grype:v0.111.0. To upgrade: pull the new tag, copy its `Digest:` value
+      # here, update this comment.
+      - name: Run grype vulnerability scan
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" \
+            -w /workspace \
+            anchore/grype@sha256:af9f30d1de4ecfbbcd2b674371e8df787879e16832af8ab81551b0bf1ec0ad5b \
+            dir:. \
+            --fail-on high \
+            --only-fixed \
+            -o table
+
+  docker-build:
+    needs: [test-backend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        with:
+          context: .
+          file: src/WebApi/Dockerfile
+          push: false
