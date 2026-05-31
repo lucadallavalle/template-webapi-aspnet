@@ -1,6 +1,7 @@
 using System.Globalization;
 using FluentValidation;
 using HumbleMediator;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Serilog;
@@ -34,7 +35,30 @@ try
 
     // swagger
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        // Infer required/nullable from C# nullability annotations (NRT): `string Name`
+        // becomes required + non-nullable, `string? Foo` stays optional + nullable. Gives
+        // the generated TypeScript client accurate types.
+        options.SupportNonNullableReferenceTypes();
+        options.NonNullableReferenceTypesAsRequired();
+
+        // Derive operationId from controller + action for clean client generation,
+        // e.g. CustomersController.GetById -> "Customers_GetById".
+        options.CustomOperationIds(apiDesc =>
+            apiDesc.ActionDescriptor is ControllerActionDescriptor action
+                ? $"{action.ControllerName}_{action.ActionName}"
+                : null
+        );
+
+        // Surface the XML doc comments (/// ...) in the OpenAPI document. Every project
+        // sets GenerateDocumentationFile=true, so include each app assembly's XML from the
+        // output directory.
+        foreach (var xml in Directory.GetFiles(AppContext.BaseDirectory, "WebApiTemplate.*.xml"))
+        {
+            options.IncludeXmlComments(xml, includeControllerXmlComments: true);
+        }
+    });
 
     builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
 
