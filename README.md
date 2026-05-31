@@ -77,3 +77,8 @@ The above migration is applied automatically during startup in the dev environme
 The default API endpoints should be testable from the [Swagger UI](http://localhost:5000/swagger/index.html).
 
 Enjoy!
+
+### 4. CI/CD
+This template ships a CI workflow at [.github/workflows/ci.yml](.github/workflows/ci.yml) that runs on every pull request: it restores and builds the solution, scans dependencies with [grype](https://github.com/anchore/grype), and builds the Docker image. The `dotnet test` step is commented out until you add your first migration (see step 2).
+
+It does **not** ship a release/deployment pipeline — deploy targets vary too much to template usefully. You need to create your own: typically, on push to `main`, build and push the image from [src/WebApi/Dockerfile](src/WebApi/Dockerfile) to your container registry, then trigger a deploy to your host.
