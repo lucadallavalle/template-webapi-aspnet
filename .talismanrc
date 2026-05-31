@@ -1,8 +1,0 @@
-fileignoreconfig:
-- filename: src/WebApiTemplate.Application/QueryHandlerCachingDecorator.cs
-  checksum: ec7a355dd536358b6b67ff15df3af6918344e5fc404d3ad07d7dd096ea841af7
-- filename: test/WebApiTemplate.IntegrationTests/AppWebApplicationFactory.cs
-  checksum: 3e27ba162115530609565834ee7eb4d091b3fda0b94813571410730f334a997d
-- filename: test/WebApiTemplate.IntegrationTests/Constants.cs
-  checksum: bc1f6aa439357b6713f1ec0de88155ea744cc2aa27ac9e7bf71e5a8d8e2a747b
-version: ""
