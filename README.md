@@ -12,7 +12,7 @@ I found implementations of similar samples/templates to often be overly complica
 
 ## Features
 - Based on .NET 10 to have access to the latest features
-- Simplified Startup.cs hosting model
+- Minimal hosting model (top-level statements in `Program.cs`)
 - [CQRS](https://docs.microsoft.com/en-us/azure/architecture/patterns/cqrs) with full separation between Read and Write repositories
 - Simple [Mediator](https://en.wikipedia.org/wiki/Mediator_pattern) abstraction for CQRS and implementation relying on the chosen Dependency Injection container (see [HumbleMediator](https://github.com/undrivendev/HumbleMediator))
 - Project structure following [Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) principles
@@ -27,10 +27,12 @@ I found implementations of similar samples/templates to often be overly complica
   - Caching: [QueryHandlerCachingDecorator](src/Application/QueryHandlerCachingDecorator.cs)
   - Validation: [CommandHandlerValidationDecorator](src/Application/Validation/CommandHandlerValidationDecorator.cs) and [QueryHandlerValidationDecorator](src/Application/Validation/QueryHandlerValidationDecorator.cs)
 - Structured logging using the standard [MEL](https://github.com/dotnet/runtime/tree/main/src/libraries/Microsoft.Extensions.Logging.Abstractions) interface with the open-source [Serilog](https://serilog.net/) logging library implementation
-- Cache-friendly [Dockerfile](src/WebApi/Dockerfile)
+- Cache-friendly [Dockerfile](src/WebApi/Dockerfile) with a `/health` container HEALTHCHECK
 - Expressive testing using [xUnit](https://xunit.net/) and [AwesomeAssertions](https://github.com/AwesomeAssertions/AwesomeAssertions)
 - Integration testing using real database implementation with [Testcontainers](https://dotnet.testcontainers.org/)
 - [Central Package Management](https://learn.microsoft.com/en-us/nuget/consume-packages/Central-Package-Management)
+- Continuous integration via [GitHub Actions](.github/workflows/ci.yml): build, dependency vulnerability scan with [grype](https://github.com/anchore/grype), and Docker image build
+- [pre-commit](https://pre-commit.com/) hooks: C# formatting with [CSharpier](https://csharpier.com/), secret scanning with [gitleaks](https://github.com/gitleaks/gitleaks), and general file-hygiene checks
 
 ## Usage
 ### 1. Bootstrap your project
