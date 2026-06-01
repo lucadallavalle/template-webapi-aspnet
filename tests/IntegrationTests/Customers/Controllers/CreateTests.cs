@@ -16,11 +16,12 @@ public class CreateTests(AppWebApplicationFactory factory) : BaseTestClass(facto
 
         using var client = _factory.CreateClient();
         var request = new CreateCustomerRequest();
-        using var response = await client.PostAsJsonAsync($"/api/customers", request);
+        using var response = await client.PostAsJsonAsync($"/api/v1/customers", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        var contextFactory = _factory.Services.GetRequiredService<
+        await using var scope = _factory.CreateScope();
+        var contextFactory = scope.ServiceProvider.GetRequiredService<
             IDbContextFactory<AppDbContext>
         >();
         await using var context = await contextFactory.CreateDbContextAsync();

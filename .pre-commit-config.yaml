@@ -1,19 +1,27 @@
 ---
 repos:
-  - repo: https://github.com/thoughtworks/talisman
-    rev: "v1.37.0"
+  # General file hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
     hooks:
-      - id: talisman-commit
-        entry: cmd --githook pre-commit
+      - id: no-commit-to-branch
+        args: [--branch, main]
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+  # Secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e # v8.30.1
+    hooks:
+      - id: gitleaks
   - repo: local
     hooks:
-      - id: trivy-fs
-        name: trivyfs
-        entry: aquasec/trivy fs --scanners vuln,misconfig --cache-dir /src/.pre-commit-trivy-cache --exit-code 0 ./
-        language: docker_image
-        pass_filenames: false
-        always_run: true
-        verbose: true
       # dotnet tools
       - id: dotnet-tool-restore
         name: Install .NET tools
@@ -29,7 +37,7 @@ repos:
         description: Install the .NET tools listed at .config/dotnet-tools.json.
       - id: csharpier
         name: Run CSharpier on C# files
-        entry: dotnet tool run dotnet-csharpier
+        entry: dotnet csharpier format
         language: system
         types:
           - c#

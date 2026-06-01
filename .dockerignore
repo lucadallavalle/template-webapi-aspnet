@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/.vscode/
+**/node_modules/
+.git
+.gitignore
+README.md
+TEMPLATE-SETUP.md
+docs/
+tests/

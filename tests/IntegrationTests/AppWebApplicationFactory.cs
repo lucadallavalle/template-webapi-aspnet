@@ -34,9 +34,15 @@ public class AppWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLi
     {
         await _dbContainer.StartAsync();
 
-        var contextFactory = this.Services.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        await using var context = await contextFactory.CreateDbContextAsync();
-        await using var connection = context.Database.GetDbConnection();
+        // Force host startup so Program.cs runs MigrateAsync in Development mode.
+        _ = this.Services;
+
+        // Resolve the Respawn connection from the singleton NpgsqlDataSource — the
+        // DbContext and its factory are Scoped and cannot be resolved from the root
+        // provider here.
+        await using var connection = this
+            .Services.GetRequiredService<NpgsqlDataSource>()
+            .CreateConnection();
         await connection.OpenAsync();
         _respawner = await Respawner.CreateAsync(
             connection,
@@ -70,22 +76,32 @@ public class AppWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLi
             }
 
             services.AddNpgsqlDataSource(_dbContainer.GetConnectionString());
-            services.AddPooledDbContextFactory<AppDbContext>(
-                (sp, options) =>
-                    options
-                        .UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>())
-                        .UseSnakeCaseNamingConvention()
-            );
+
+            Action<IServiceProvider, DbContextOptionsBuilder> dbConfigure = (sp, options) =>
+                options
+                    .UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>())
+                    .UseSnakeCaseNamingConvention();
+
+            services.AddDbContext<AppDbContext>(dbConfigure);
+            services.AddDbContextFactory<AppDbContext>(dbConfigure, ServiceLifetime.Scoped);
 
             Program.Container.Options.AllowOverridingRegistrations = true;
         });
     }
 
+    /// <summary>
+    /// Creates a DI scope for resolving scoped services (e.g. IDbContextFactory) outside
+    /// of an HTTP request — used by tests to seed and assert against the database. The
+    /// DbContext and its factory are Scoped, so they cannot be resolved directly from the
+    /// root provider (<see cref="WebApplicationFactory{TEntryPoint}.Services"/>).
+    /// </summary>
+    public AsyncServiceScope CreateScope() => Services.CreateAsyncScope();
+
     public async Task ResetDatabase()
     {
-        var contextFactory = this.Services.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        await using var context = await contextFactory.CreateDbContextAsync();
-        await using var connection = context.Database.GetDbConnection();
+        await using var connection = this
+            .Services.GetRequiredService<NpgsqlDataSource>()
+            .CreateConnection();
         await connection.OpenAsync();
         await _respawner.ResetAsync(connection);
     }

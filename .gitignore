@@ -570,4 +570,12 @@ FodyWeavers.xsd
 ### VisualStudio Patch ###
 # Additional files built by Visual Studio
 
-.pre-commit-trivy-cache
+# dotnet build sometimes creates directories with literal backslashes on Linux
+bin\\*
+
+# JetBrains IDE
+.idea/
+
+# Secrets
+.env
+.envrc
