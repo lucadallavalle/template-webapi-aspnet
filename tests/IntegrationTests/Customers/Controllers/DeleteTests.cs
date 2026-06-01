@@ -19,7 +19,7 @@ public class DeleteTests(AppWebApplicationFactory factory) : BaseTestClass(facto
             IDbContextFactory<AppDbContext>
         >();
         await using var context = await contextFactory.CreateDbContextAsync();
-        context.Customers.Add(new Core.Customers.Customer(id));
+        context.Customers.Add(new Core.Customers.Customer { Id = id });
         await context.SaveChangesAsync();
 
         using var client = _factory.CreateClient();

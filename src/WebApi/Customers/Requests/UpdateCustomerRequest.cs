@@ -11,5 +11,5 @@ public class UpdateCustomerRequest
     /// Maps the request to a domain entity.
     /// </summary>
     /// <returns>The domain entity.</returns>
-    public static Customer ToDomainEntity() => new(null);
+    public static Customer ToDomainEntity() => new();
 }

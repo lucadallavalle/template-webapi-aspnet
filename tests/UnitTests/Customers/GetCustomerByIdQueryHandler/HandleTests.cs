@@ -12,7 +12,7 @@ public class HandleTests
     public async Task WithValidRequestShouldCallRepository()
     {
         // Arrange
-        var expected = new Customer(1);
+        var expected = new Customer { Id = 1 };
         var mock = Substitute.For<ICustomerReadRepository>();
         mock.GetById(default).ReturnsForAnyArgs(expected);
 
