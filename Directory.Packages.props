@@ -22,8 +22,6 @@
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.0" />
     <PackageVersion Include="FluentValidation" Version="12.1.1" />
     <PackageVersion Include="HumbleMediator" Version="1.1.1" />
-    <PackageVersion Include="Dapper" Version="2.1.79" />
-    <PackageVersion Include="Dapper.Contrib" Version="2.0.78" />
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />

@@ -31,7 +31,7 @@ public class HandleTests
             mockUowFactory,
             mockWriteRepository
         );
-        var newEntity = new Customer(13452);
+        var newEntity = new Customer { Id = 13452 };
 
         // Act
         await sut.Handle(new CreateCustomerCommand(newEntity));

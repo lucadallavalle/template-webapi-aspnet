@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using WebApiTemplate.Application.Customers.Commands;
 using WebApiTemplate.Application.Customers.Queries;
 using WebApiTemplate.Core;
+using WebApiTemplate.Core.Common;
 using WebApiTemplate.Core.Customers;
+using WebApiTemplate.WebApi.Common;
 using WebApiTemplate.WebApi.Customers.Requests;
 using WebApiTemplate.WebApi.Customers.Responses;
 
@@ -28,6 +30,30 @@ public sealed class CustomersController(IMediator mediator) : AppControllerBase(
             new CreateCustomerCommand(CreateCustomerRequest.ToDomainEntity())
         );
         return CreatedAtAction(nameof(GetById), new { id }, new CustomerCreatedResponse(id));
+    }
+
+    /// <summary>
+    /// Lists entities with search, sorting, and pagination.
+    /// </summary>
+    /// <param name="search">Free-text search term.</param>
+    /// <param name="orderBy">Comma-separated sort fields; prefix a field with '-' for descending.</param>
+    /// <param name="offset">Zero-based offset.</param>
+    /// <param name="limit">Maximum number of items to return.</param>
+    /// <returns>A 200 OK response with a page of entities and the total count.</returns>
+    [HttpGet]
+    [Route("")]
+    public async Task<ActionResult<PagedResponse<Customer>>> List(
+        [FromQuery] string? search,
+        [FromQuery] string? orderBy,
+        [FromQuery] int offset = 0,
+        [FromQuery] int limit = 25
+    )
+    {
+        var result = await _mediator.SendQuery<ListCustomersQuery, PagedResult<Customer>>(
+            new ListCustomersQuery(search, orderBy, offset, limit)
+        );
+
+        return Ok(new PagedResponse<Customer>(result.Items, result.Total, offset, limit));
     }
 
     /// <summary>

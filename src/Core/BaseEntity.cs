@@ -3,5 +3,10 @@ namespace WebApiTemplate.Core;
 /// <summary>
 /// Base class for all domain entities.
 /// </summary>
-/// <param name="Id">The id of the entity.</param>
-public abstract record BaseEntity(int? Id);
+public abstract class BaseEntity
+{
+    /// <summary>
+    /// Gets or sets the id of the entity. Null until the entity has been persisted.
+    /// </summary>
+    public int? Id { get; set; }
+}

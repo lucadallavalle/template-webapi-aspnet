@@ -19,7 +19,7 @@ public class GetByIdTests(AppWebApplicationFactory factory) : BaseTestClass(fact
             IDbContextFactory<AppDbContext>
         >();
         await using var context = await contextFactory.CreateDbContextAsync();
-        context.Customers.Add(new Core.Customers.Customer(id));
+        context.Customers.Add(new Core.Customers.Customer { Id = id });
         await context.SaveChangesAsync();
 
         using var client = _factory.CreateClient();
