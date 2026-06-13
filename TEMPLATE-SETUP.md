@@ -165,11 +165,12 @@ Example of adding a parameter:
    ```bash
    dotnet ef migrations add InitialMigration --project ./src/Infrastructure --startup-project ./src/WebApi
    ```
-3. **Start the application**:
+3. **Configure authentication & authorization**: `UseAuthentication()`/`UseAuthorization()` are wired into the pipeline but no scheme is registered (all requests are anonymous until you add one). Register a real scheme (e.g. JWT bearer) and add authorization policies / `[Authorize]` attributes before exposing the API.
+4. **Start the application**:
    ```bash
    dotnet run --project ./src/WebApi
    ```
-4. **Access Swagger UI**: http://localhost:5000/swagger/index.html
+5. **Access Swagger UI**: http://localhost:5000/swagger/index.html
 
 ## Troubleshooting
 

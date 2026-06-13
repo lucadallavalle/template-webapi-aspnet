@@ -1,6 +1,7 @@
 using System.Net;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
+using WebApiTemplate.Application.Customers;
 using WebApiTemplate.Core.Customers;
 using WebApiTemplate.Infrastructure.Persistence;
 using WebApiTemplate.WebApi.Common;
@@ -30,7 +31,7 @@ public class ListTests(AppWebApplicationFactory factory) : BaseTestClass(factory
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var page = await response.Content.ReadFromJsonAsync<PagedResponse<Customer>>();
+        var page = await response.Content.ReadFromJsonAsync<PagedResponse<CustomerDto>>();
         page.Should().NotBeNull();
         page!.Total.Should().Be(3);
         page.Items.Should().HaveCount(2);

@@ -13,19 +13,23 @@ I found implementations of similar samples/templates to often be overly complica
 ## Features
 - Based on .NET 10 to have access to the latest features
 - Minimal hosting model (top-level statements in `Program.cs`)
-- [CQRS](https://docs.microsoft.com/en-us/azure/architecture/patterns/cqrs) with full separation between Read and Write repositories
+- [CQRS](https://docs.microsoft.com/en-us/azure/architecture/patterns/cqrs): commands and queries have separate handlers and decorator pipelines (dispatched through a mediator), and the data access is segregated too — read repositories for queries, write repositories behind the unit of work for commands
 - Simple [Mediator](https://en.wikipedia.org/wiki/Mediator_pattern) abstraction for CQRS and implementation relying on the chosen Dependency Injection container (see [HumbleMediator](https://github.com/undrivendev/HumbleMediator))
 - Project structure following [Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) principles
-- Read and write repositories based on [Entity Framework Core](https://github.com/dotnet/efcore), behind tech-agnostic `IReadRepository`/`IWriteRepository` interfaces — `Application`/`Core` never reference EF, so a repository can be backed by [Dapper](https://dapperlib.github.io/Dapper/) or raw ADO.NET without touching business logic
+- Read/write repository split (the data-access half of CQRS) over [Entity Framework Core](https://github.com/dotnet/efcore), behind tech-agnostic interfaces — `Application`/`Core` never reference EF, so a repository can be backed by [Dapper](https://dapperlib.github.io/Dapper/) or raw ADO.NET without touching business logic:
+  - **Reads** ([`IReadRepository<T>`](src/Core/Persistence/IReadRepository.cs)) are injected directly into query handlers and run on a fresh no-tracking context — no transaction, and a natural seam to later target a read replica
+  - **Writes** ([`IWriteRepository<T, TKey>`](src/Core/Persistence/IWriteRepository.cs)) are resolved inside the unit of work: the delegate passed to `IUnitOfWorkFactory.ExecuteInTransactionAsync` **is** the atomic, retriable transaction — `uow.GetRepository<T>()` stages changes while the unit of work flushes and commits on success (and rolls back on exception)
+- Automatic repository registration: read repositories (`ReadRepositoryBase<>`) and write repositories (`WriteRepositoryBase<,,>`) are discovered in the `Infrastructure` assembly and registered by a single [`AddPersistence<TDbContext>()`](src/Infrastructure/Persistence/ServiceCollectionExtensions.cs) call (which also wires the unit-of-work factory for the write side)
 - Read repositories ship built-in pagination, sorting, and free-text search scaffolding (`PagedResult<T>`, `ListAsync`)
 - [PostgreSQL](https://www.postgresql.org/) open source database as data store (easily replaceable with any Entity Framework-supported data stores)
+- Connection resiliency: transient database failures are retried automatically ([`EnableRetryOnFailure`](https://learn.microsoft.com/ef/core/miscellaneous/connection-resiliency)); on a retry the unit-of-work delegate is replayed on a fresh `DbContext`, which is why it must stay idempotent (no non-database side effects inside the transaction)
 - Database configured to use snake_case naming convention via [EFCore.NamingConventions](https://github.com/efcore/EFCore.NamingConventions)
 - Migrations handled by Entity Framework and automatically applied during startup (in dev environment)
 - [SimpleInjector](https://simpleinjector.org/) open-source DI container integration for advanced service registration scenarios
 - [Aspect-oriented programming](https://en.wikipedia.org/wiki/Aspect-oriented_programming) using [Decorators](https://en.wikipedia.org/wiki/Decorator_pattern) on the above-mentioned mediator
   - Logging: [QueryHandlerLoggingDecorator](src/Application/Logging/QueryHandlerLoggingDecorator.cs) and [CommandHandlerLoggingDecorator](src/Application/Logging/CommandHandlerLoggingDecorator.cs)
-  - Caching: [QueryHandlerCachingDecorator](src/Application/QueryHandlerCachingDecorator.cs)
   - Validation: [CommandHandlerValidationDecorator](src/Application/Validation/CommandHandlerValidationDecorator.cs) and [QueryHandlerValidationDecorator](src/Application/Validation/QueryHandlerValidationDecorator.cs)
+- Caching is intentionally **not** a mediator decorator — it's a per-resource policy (key scope, TTL, invalidation), not a uniform cross-cutting concern like logging or validation. Reach for purpose-built layers instead: [output caching](https://learn.microsoft.com/aspnet/core/performance/caching/output) for HTTP responses, and [`HybridCache`](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid) used deliberately per-handler (with explicit, scoped keys and invalidation) for application-level caching
 - Structured logging using the standard [MEL](https://github.com/dotnet/runtime/tree/main/src/libraries/Microsoft.Extensions.Logging.Abstractions) interface with the open-source [Serilog](https://serilog.net/) logging library implementation
 - Cache-friendly [Dockerfile](src/WebApi/Dockerfile) with a `/health` container HEALTHCHECK
 - Expressive testing using [xUnit](https://xunit.net/) and [AwesomeAssertions](https://github.com/AwesomeAssertions/AwesomeAssertions)
@@ -75,12 +79,23 @@ The above migration is applied automatically during startup in the dev environme
 > uncomment the `dotnet test` step in [.github/workflows/ci.yml](.github/workflows/ci.yml)
 > to run the full suite on every pull request.
 
-### 3. Start the application
+### 3. Configure authentication & authorization
+This template wires `app.UseAuthentication()` and `app.UseAuthorization()` into the request pipeline, but **no authentication scheme is configured** — until you add one, every request is anonymous and (absent any `[Authorize]` attributes) allowed through. Before exposing the API, register a real scheme and add authorization policies / `[Authorize]` attributes, e.g.:
+
+```csharp
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options => { /* authority, audience, ... */ });
+```
+
+Like the initial migration above, this is a deliberate "you must configure it" step: the middleware ships wired so you only have to plug in your scheme and policies.
+
+### 4. Start the application
 The default API endpoints should be testable from the [Swagger UI](http://localhost:5000/swagger/index.html).
 
 Enjoy!
 
-### 4. CI/CD
+### 5. CI/CD
 This template ships a CI workflow at [.github/workflows/ci.yml](.github/workflows/ci.yml) that runs on every pull request: it restores and builds the solution, scans dependencies with [grype](https://github.com/anchore/grype), and builds the Docker image. The `dotnet test` step is commented out until you add your first migration (see step 2).
 
 It does **not** ship a release/deployment pipeline — deploy targets vary too much to template usefully. You need to create your own: typically, on push to `main`, build and push the image from [src/WebApi/Dockerfile](src/WebApi/Dockerfile) to your container registry, then trigger a deploy to your host.

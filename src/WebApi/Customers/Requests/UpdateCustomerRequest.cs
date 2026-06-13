@@ -8,8 +8,10 @@ namespace WebApiTemplate.WebApi.Customers.Requests;
 public class UpdateCustomerRequest
 {
     /// <summary>
-    /// Maps the request to a domain entity.
+    /// Maps this request to a domain entity. An instance method so the bound request body is the
+    /// source of the mapping. The id is NOT carried here — the handler applies the route id to the
+    /// loaded entity, so the URL is the single source of truth for which row is updated.
     /// </summary>
     /// <returns>The domain entity.</returns>
-    public static Customer ToDomainEntity() => new();
+    public Customer ToDomainEntity() => new();
 }

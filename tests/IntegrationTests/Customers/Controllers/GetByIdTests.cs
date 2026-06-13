@@ -1,6 +1,7 @@
 using System.Net;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
+using WebApiTemplate.Application.Customers;
 using WebApiTemplate.Infrastructure.Persistence;
 using Xunit;
 
@@ -27,7 +28,7 @@ public class GetByIdTests(AppWebApplicationFactory factory) : BaseTestClass(fact
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var customer = await response.Content.ReadFromJsonAsync<Core.Customers.Customer>();
+        var customer = await response.Content.ReadFromJsonAsync<CustomerDto>();
         customer.Should().NotBeNull();
         customer!.Id.Should().Be(id);
     }

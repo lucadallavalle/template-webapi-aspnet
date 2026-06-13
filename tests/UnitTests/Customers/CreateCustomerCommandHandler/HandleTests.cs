@@ -1,42 +1,53 @@
+using AwesomeAssertions;
 using NSubstitute;
 using WebApiTemplate.Application.Customers.Commands;
-using WebApiTemplate.Core;
 using WebApiTemplate.Core.Customers;
+using WebApiTemplate.Core.Persistence;
 using Xunit;
 
 namespace WebApiTemplate.UnitTests.Customers.CreateCustomerCommandHandler;
 
 public class HandleTests
 {
+    private const int ExpectedId = 13452;
+
     [Fact]
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "IDisposableAnalyzers.Correctness",
-        "IDISP004:Don't ignore created IDisposable",
-        Justification = "The IDisposable is not actually created in the test."
-    )]
-    public async Task WithValidRequestShouldCallRepository()
+    public async Task AddsCustomerThenFlushesAndReturnsStoreGeneratedId()
     {
         // Arrange
-        var mockWriteRepository = Substitute.For<ICustomerWriteRepository>();
-        mockWriteRepository
-            .Create(Arg.Any<Customer>(), Arg.Any<IUnitOfWork>())
-            .Returns(Nothing.Instance);
+        var repository = Substitute.For<ICustomerWriteRepository>();
 
-        var mockUow = Substitute.For<IUnitOfWork>();
+        // Simulate the store assigning the identity key when the change is added/flushed.
+        repository
+            .When(r => r.AddAsync(Arg.Any<Customer>(), Arg.Any<CancellationToken>()))
+            .Do(call => call.Arg<Customer>().Id = ExpectedId);
 
-        var mockUowFactory = Substitute.For<IUnitOfWorkFactory>();
-        mockUowFactory.Create().ReturnsForAnyArgs(mockUow);
+        var uow = Substitute.For<IUnitOfWork>();
+        uow.GetRepository<ICustomerWriteRepository>().Returns(repository);
 
-        var sut = new Application.Customers.Commands.CreateCustomerCommandHandler(
-            mockUowFactory,
-            mockWriteRepository
-        );
-        var newEntity = new Customer { Id = 13452 };
+        // The factory invokes the captured delegate with our substitute unit of work.
+        var uowFactory = Substitute.For<IUnitOfWorkFactory>();
+        uowFactory
+            .ExecuteInTransactionAsync(
+                Arg.Any<Func<IUnitOfWork, CancellationToken, Task<int>>>(),
+                Arg.Any<CancellationToken>()
+            )
+            .Returns(call =>
+                call.Arg<Func<IUnitOfWork, CancellationToken, Task<int>>>()(
+                    uow,
+                    call.Arg<CancellationToken>()
+                )
+            );
+
+        var sut = new Application.Customers.Commands.CreateCustomerCommandHandler(uowFactory);
+        var customer = new Customer();
 
         // Act
-        await sut.Handle(new CreateCustomerCommand(newEntity));
+        var result = await sut.Handle(new CreateCustomerCommand(customer));
 
         // Assert
-        await mockWriteRepository.Received(1).Create(Arg.Is(newEntity), Arg.Is(mockUow));
+        result.Should().Be(ExpectedId);
+        await repository.Received(1).AddAsync(Arg.Is(customer), Arg.Any<CancellationToken>());
+        await uow.Received(1).FlushAsync(Arg.Any<CancellationToken>());
     }
 }

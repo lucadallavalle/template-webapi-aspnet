@@ -12,6 +12,6 @@ public sealed class DeleteCustomerCommandValidator : AbstractValidator<DeleteCus
     /// </summary>
     public DeleteCustomerCommandValidator()
     {
-        RuleFor(e => e.Id).Must(e => e > 0);
+        RuleFor(e => e.Id).GreaterThan(0);
     }
 }
