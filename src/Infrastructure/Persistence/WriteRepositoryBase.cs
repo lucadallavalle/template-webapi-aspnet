@@ -11,7 +11,7 @@ namespace WebApiTemplate.Infrastructure.Persistence;
 /// Mutating methods (<see cref="AddAsync"/>, <see cref="UpdateAsync"/>, <see cref="DeleteByIdAsync"/>) only
 /// stage changes in the change tracker. They do not emit SQL on their own. Persistence is performed atomically
 /// by the surrounding
-/// <see cref="IUnitOfWorkFactory.ExecuteInTransactionAsync(System.Func{IUnitOfWork, System.Threading.CancellationToken, System.Threading.Tasks.Task}, System.Threading.CancellationToken)"/>
+/// <see cref="IUnitOfWorkFactory.ExecuteInTransactionAsync(System.Func{IUnitOfWork, System.Threading.CancellationToken, System.Threading.Tasks.Task}, System.Func{System.Threading.CancellationToken, System.Threading.Tasks.Task{System.Boolean}}, System.Threading.CancellationToken)"/>
 /// scope, which flushes and commits once the delegate returns. If a later operation in the same delegate
 /// needs a store-generated value (e.g. an identity key), call <see cref="IUnitOfWork.FlushAsync"/> to
 /// materialise pending changes mid-delegate.

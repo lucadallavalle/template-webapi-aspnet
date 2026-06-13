@@ -30,6 +30,7 @@ public class HandleTests
         uowFactory
             .ExecuteInTransactionAsync(
                 Arg.Any<Func<IUnitOfWork, CancellationToken, Task<int>>>(),
+                Arg.Any<Func<CancellationToken, Task<CommitVerification<int>>>>(),
                 Arg.Any<CancellationToken>()
             )
             .Returns(call =>

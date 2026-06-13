@@ -42,7 +42,7 @@ public sealed class UpdateCustomerCommandHandler(IUnitOfWorkFactory uowFactory)
                 // carries an Id in this template; a real entity would assign its fields, e.g.:
                 //   customer.Name = command.Customer.Name;
             },
-            cancellationToken
+            cancellationToken: cancellationToken
         );
 
         return Nothing.Instance;

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using WebApiTemplate.Core.Persistence;
 
 namespace WebApiTemplate.Infrastructure.Persistence;
@@ -27,10 +28,17 @@ public sealed class UnitOfWorkFactory<TDbContext>(
     /// <inheritdoc />
     public Task ExecuteInTransactionAsync(
         Func<IUnitOfWork, CancellationToken, Task> work,
+        Func<CancellationToken, Task<bool>>? verifySucceeded = null,
         CancellationToken cancellationToken = default
     )
     {
         ArgumentNullException.ThrowIfNull(work);
+
+        // Adapt the void verifier to the result-bearing one: there is no value to recover, so a
+        // confirmed commit simply carries null.
+        Func<CancellationToken, Task<CommitVerification<object?>>>? verify = verifySucceeded is null
+            ? null
+            : async ct => new CommitVerification<object?>(await verifySucceeded(ct), Result: null);
 
         return ExecuteInTransactionAsync<object?>(
             async (uow, ct) =>
@@ -38,6 +46,7 @@ public sealed class UnitOfWorkFactory<TDbContext>(
                 await work(uow, ct);
                 return null;
             },
+            verify,
             cancellationToken
         );
     }
@@ -45,6 +54,7 @@ public sealed class UnitOfWorkFactory<TDbContext>(
     /// <inheritdoc />
     public async Task<TResult> ExecuteInTransactionAsync<TResult>(
         Func<IUnitOfWork, CancellationToken, Task<TResult>> work,
+        Func<CancellationToken, Task<CommitVerification<TResult>>>? verifySucceeded = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -58,7 +68,12 @@ public sealed class UnitOfWorkFactory<TDbContext>(
         var strategy = sentinelContext.Database.CreateExecutionStrategy();
 
         return await strategy.ExecuteAsync(
-            state: (Factory: dbContextFactory, ServiceProvider: serviceProvider, Work: work),
+            state: (
+                Factory: dbContextFactory,
+                ServiceProvider: serviceProvider,
+                Work: work,
+                Verify: verifySucceeded
+            ),
             operation: static async (state, ct) =>
             {
                 await using var dbContext = await state.Factory.CreateDbContextAsync(ct);
@@ -74,7 +89,20 @@ public sealed class UnitOfWorkFactory<TDbContext>(
                 await transaction.CommitAsync(ct);
                 return result;
             },
-            verifySucceeded: null,
+            // Called by the strategy only when a transient failure leaves commit success ambiguous.
+            // Without a caller-supplied verifier we cannot prove the commit landed, so we report
+            // "not succeeded" — behaviourally identical to passing null (the strategy retries),
+            // i.e. at-least-once. A supplied verifier can instead confirm the commit and short-circuit.
+            verifySucceeded: static async (state, ct) =>
+            {
+                if (state.Verify is null)
+                {
+                    return new ExecutionResult<TResult>(successful: false, result: default!);
+                }
+
+                var verification = await state.Verify(ct);
+                return new ExecutionResult<TResult>(verification.IsCommitted, verification.Result);
+            },
             cancellationToken: cancellationToken
         );
     }

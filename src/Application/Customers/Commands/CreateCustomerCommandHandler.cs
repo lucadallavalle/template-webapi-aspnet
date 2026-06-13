@@ -7,6 +7,15 @@ namespace WebApiTemplate.Application.Customers.Commands;
 /// <summary>
 /// <see cref="ICommandHandler{TCommand,TCommandResult}"/> implementation for creating a new customer entity.
 /// </summary>
+/// <remarks>
+/// This insert is at-least-once under connection resiliency: if a transient failure occurs after the
+/// commit was sent but before its acknowledgement, the execution strategy replays this delegate on a
+/// fresh context and could insert a second row (and the store-generated id assigned on the first
+/// attempt is left stale on the reused command entity). For a template skeleton that's acceptable; for
+/// exactly-once, pass a <c>verifySucceeded</c> callback to
+/// <see cref="IUnitOfWorkFactory.ExecuteInTransactionAsync{TResult}"/> backed by a transaction-token
+/// row (see the README's connection-resiliency note).
+/// </remarks>
 /// <param name="uowFactory">The unit-of-work factory.</param>
 public sealed class CreateCustomerCommandHandler(IUnitOfWorkFactory uowFactory)
     : ICommandHandler<CreateCustomerCommand, int>
@@ -34,6 +43,6 @@ public sealed class CreateCustomerCommandHandler(IUnitOfWorkFactory uowFactory)
                 return command.Customer.Id
                     ?? throw new InvalidOperationException("New customer has no Id");
             },
-            cancellationToken
+            cancellationToken: cancellationToken
         );
 }
