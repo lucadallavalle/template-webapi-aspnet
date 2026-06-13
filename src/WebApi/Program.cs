@@ -11,7 +11,6 @@ using WebApiTemplate.Application.Customers.Commands;
 using WebApiTemplate.Application.Customers.Queries;
 using WebApiTemplate.Application.Logging;
 using WebApiTemplate.Application.Validation;
-using WebApiTemplate.Core.Customers;
 using WebApiTemplate.Core.Persistence;
 using WebApiTemplate.Infrastructure.Persistence;
 
@@ -142,8 +141,14 @@ try
 
             // Read repositories are registered in MS-DI by AddPersistence and injected into query
             // handlers (resolved by this container), so each must be cross-wired. They are Scoped
-            // (they resolve the Scoped IDbContextFactory), hence explicit cross-wiring.
-            options.CrossWire<ICustomerReadRepository>();
+            // (they resolve the Scoped IDbContextFactory), hence explicit cross-wiring. Driving this
+            // off the same assembly scan means a newly added read repository is wired automatically.
+            foreach (
+                var contract in ServiceCollectionExtensions.ReadRepositoryContracts<AppDbContext>()
+            )
+            {
+                options.CrossWire(contract);
+            }
         }
     );
 

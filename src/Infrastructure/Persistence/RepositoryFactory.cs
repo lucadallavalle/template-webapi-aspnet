@@ -8,8 +8,15 @@ namespace WebApiTemplate.Infrastructure.Persistence;
 /// staged changes participate in the unit of work's transaction.
 /// </summary>
 /// <typeparam name="TRepository">The repository contract to create.</typeparam>
-/// <param name="serviceProvider">The provider used to discover the concrete repository type and its dependencies.</param>
-public sealed class RepositoryFactory<TRepository>(IServiceProvider serviceProvider)
+/// <param name="serviceProvider">The provider used to resolve the repository's other dependencies.</param>
+/// <param name="implementationType">
+/// The concrete repository type to instantiate (supplied at registration time). Holding it directly
+/// avoids resolving — and immediately discarding — an instance just to discover its type.
+/// </param>
+public sealed class RepositoryFactory<TRepository>(
+    IServiceProvider serviceProvider,
+    Type implementationType
+)
     where TRepository : notnull
 {
     /// <summary>
@@ -23,8 +30,7 @@ public sealed class RepositoryFactory<TRepository>(IServiceProvider serviceProvi
     {
         ArgumentNullException.ThrowIfNull(dbContext);
 
-        var repositoryType = serviceProvider.GetRequiredService<TRepository>().GetType();
         return (TRepository)
-            ActivatorUtilities.CreateInstance(serviceProvider, repositoryType, dbContext);
+            ActivatorUtilities.CreateInstance(serviceProvider, implementationType, dbContext);
     }
 }

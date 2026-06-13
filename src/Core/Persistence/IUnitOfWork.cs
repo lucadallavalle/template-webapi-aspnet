@@ -7,7 +7,7 @@ namespace WebApiTemplate.Core.Persistence;
 /// <remarks>
 /// Instances are produced and lifetime-managed by an <see cref="IUnitOfWorkFactory"/>
 /// and are only valid inside the delegate passed to
-/// <see cref="IUnitOfWorkFactory.ExecuteInTransactionAsync(System.Func{IUnitOfWork, System.Threading.CancellationToken, System.Threading.Tasks.Task}, System.Threading.CancellationToken)"/>.
+/// <see cref="IUnitOfWorkFactory.ExecuteInTransactionAsync(System.Func{IUnitOfWork, System.Threading.CancellationToken, System.Threading.Tasks.Task}, System.Func{System.Threading.CancellationToken, System.Threading.Tasks.Task{System.Boolean}}, System.Threading.CancellationToken)"/>.
 /// Do not store references outside that scope.
 /// </remarks>
 public interface IUnitOfWork

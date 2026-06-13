@@ -26,7 +26,7 @@ public sealed class DeleteCustomerCommandHandler(IUnitOfWorkFactory uowFactory)
         await uowFactory.ExecuteInTransactionAsync(
             (uow, ct) =>
                 uow.GetRepository<ICustomerWriteRepository>().DeleteByIdAsync(command.Id, ct),
-            cancellationToken
+            cancellationToken: cancellationToken
         );
 
         return Nothing.Instance;

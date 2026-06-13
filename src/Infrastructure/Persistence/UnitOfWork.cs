@@ -9,7 +9,7 @@ namespace WebApiTemplate.Infrastructure.Persistence;
 /// </summary>
 /// <remarks>
 /// Instances are created by <see cref="UnitOfWorkFactory{TDbContext}"/> for the lifetime of a single
-/// <see cref="IUnitOfWorkFactory.ExecuteInTransactionAsync(System.Func{IUnitOfWork, System.Threading.CancellationToken, System.Threading.Tasks.Task}, System.Threading.CancellationToken)"/>
+/// <see cref="IUnitOfWorkFactory.ExecuteInTransactionAsync(System.Func{IUnitOfWork, System.Threading.CancellationToken, System.Threading.Tasks.Task}, System.Func{System.Threading.CancellationToken, System.Threading.Tasks.Task{System.Boolean}}, System.Threading.CancellationToken)"/>
 /// invocation. The unit of work itself owns no disposable resources: the underlying
 /// <see cref="DbContext"/> and transaction are owned by the factory and disposed at the
 /// end of the delegate's execution (including across retry attempts).

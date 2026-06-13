@@ -17,7 +17,8 @@ public static class ServiceCollectionExtensions
     /// <remarks>
     /// Read repositories are registered in the service collection here, but because query handlers are
     /// resolved by the primary (SimpleInjector) container they must also be cross-wired into it from
-    /// the composition root.
+    /// the composition root. Use <see cref="ReadRepositoryContracts{T}"/> to enumerate the contracts to
+    /// cross-wire so new read repositories are picked up automatically.
     /// </remarks>
     /// <typeparam name="T">The application's <see cref="DbContext"/> type.</typeparam>
     /// <param name="services">The service collection.</param>
@@ -32,9 +33,9 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Registers the write-side unit-of-work stack for <typeparamref name="T"/>: a scoped
-    /// <see cref="IDbContextFactory{TContext}"/>, the <see cref="IUnitOfWorkFactory"/>, and every
-    /// concrete write repository (a class deriving from <see cref="WriteRepositoryBase{TEntity, TKey, TContext}"/>)
-    /// discovered in <typeparamref name="T"/>'s assembly, together with its repository factory.
+    /// <see cref="IDbContextFactory{TContext}"/>, the <see cref="IUnitOfWorkFactory"/>, and a repository
+    /// factory for every concrete write repository (a class deriving from
+    /// <see cref="WriteRepositoryBase{TEntity, TKey, TContext}"/>) discovered in <typeparamref name="T"/>'s assembly.
     /// </summary>
     /// <typeparam name="T">The application's <see cref="DbContext"/> type.</typeparam>
     /// <param name="services">The service collection.</param>
@@ -52,12 +53,22 @@ public static class ServiceCollectionExtensions
         services.AddDbContextFactory<T>(optionsAction, ServiceLifetime.Scoped);
         services.AddScoped<IUnitOfWorkFactory, UnitOfWorkFactory<T>>();
 
-        // Each concrete write repository is registered against its entity-specific interface, along
-        // with the RepositoryFactory the UnitOfWork uses to resolve it inside the transaction.
-        foreach (var (repository, contract) in ConcreteRepositories<T>("WriteRepositoryBase`3"))
+        // Write repositories are never injected directly: the unit of work creates them via
+        // RepositoryFactory<TContract>, bound to the transaction's DbContext. Register each factory
+        // with its concrete implementation type so it can ActivatorUtilities-create the repository
+        // directly — no need to resolve (and immediately discard) a throwaway instance just to learn
+        // its type, which would also force a stray DbContext to be constructed.
+        foreach (
+            var (implementation, contract) in ConcreteRepositories<T>(
+                typeof(WriteRepositoryBase<,,>)
+            )
+        )
         {
-            services.AddScoped(contract, repository);
-            services.AddScoped(typeof(RepositoryFactory<>).MakeGenericType(contract));
+            var factoryType = typeof(RepositoryFactory<>).MakeGenericType(contract);
+            services.AddScoped(
+                factoryType,
+                sp => ActivatorUtilities.CreateInstance(sp, factoryType, implementation)
+            );
         }
 
         return services;
@@ -74,18 +85,32 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddReadRepositories<T>(this IServiceCollection services)
         where T : DbContext
     {
-        foreach (var (repository, contract) in ConcreteRepositories<T>("ReadRepositoryBase`1"))
+        foreach (
+            var (implementation, contract) in ConcreteRepositories<T>(typeof(ReadRepositoryBase<>))
+        )
         {
-            services.AddScoped(contract, repository);
+            services.AddScoped(contract, implementation);
         }
 
         return services;
     }
 
-    // Finds concrete repository classes in T's assembly whose immediate base type matches
-    // baseTypeName, paired with their entity-specific (non-generic) repository interface.
-    private static IEnumerable<(Type Repository, Type Contract)> ConcreteRepositories<T>(
-        string baseTypeName
+    /// <summary>
+    /// Enumerates the entity-specific read-repository contracts (e.g. <c>ICustomerReadRepository</c>)
+    /// discovered in <typeparamref name="T"/>'s assembly. The composition root cross-wires these into
+    /// SimpleInjector so query handlers can resolve them, automatically picking up new read repositories.
+    /// </summary>
+    /// <typeparam name="T">The application's <see cref="DbContext"/> type.</typeparam>
+    /// <returns>The distinct read-repository contract types.</returns>
+    public static IEnumerable<Type> ReadRepositoryContracts<T>()
+        where T : DbContext =>
+        ConcreteRepositories<T>(typeof(ReadRepositoryBase<>)).Select(x => x.Contract).Distinct();
+
+    // Finds concrete repository classes in T's assembly that derive (at any depth) from the given open
+    // generic base (e.g. WriteRepositoryBase<,,>), paired with their entity-specific (non-generic)
+    // repository interface.
+    private static IEnumerable<(Type Implementation, Type Contract)> ConcreteRepositories<T>(
+        Type openGenericBase
     )
         where T : DbContext =>
         typeof(T)
@@ -94,10 +119,7 @@ public static class ServiceCollectionExtensions
                 t.IsClass
                 && !t.IsAbstract
                 && t.Name.EndsWith("Repository", StringComparison.Ordinal)
-                && (
-                    t.BaseType?.Name.Equals(baseTypeName, StringComparison.OrdinalIgnoreCase)
-                    ?? false
-                )
+                && DerivesFromGeneric(t, openGenericBase)
             )
             .SelectMany(t =>
                 t.GetInterfaces()
@@ -106,6 +128,22 @@ public static class ServiceCollectionExtensions
                     .Where(i =>
                         !i.IsGenericType && i.Name.EndsWith("Repository", StringComparison.Ordinal)
                     )
-                    .Select(i => (Repository: t, Contract: i))
+                    .Select(i => (Implementation: t, Contract: i))
             );
+
+    // Walks the base-type chain looking for a constructed generic whose definition is openGenericBase.
+    // Matching the generic type definition (rather than a mangled type name) is robust to intermediate
+    // abstract bases and independent of naming.
+    private static bool DerivesFromGeneric(Type type, Type openGenericBase)
+    {
+        for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
+        {
+            if (baseType.IsGenericType && baseType.GetGenericTypeDefinition() == openGenericBase)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
