@@ -33,9 +33,21 @@ public abstract class BaseLoggingDecorator<TRequest>
         Func<TRequest, CancellationToken, Task<TResult>> next
     )
     {
-        _logger.LogInformation("START handling request {@request}", request);
-        var result = await next(request, cancellationToken);
-        _logger.LogInformation("FINISH handling request {@request}", request);
-        return result;
+        // Log the request *type name* only — never the request instance. Serializing the request
+        // (e.g. "{@request}") can leak PII / secrets carried in command and query payloads.
+        var requestType = typeof(TRequest).Name;
+
+        _logger.LogInformation("START handling request {RequestType}", requestType);
+        try
+        {
+            var result = await next(request, cancellationToken);
+            _logger.LogInformation("FINISH handling request {RequestType}", requestType);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FAILED handling request {RequestType}", requestType);
+            throw;
+        }
     }
 }

@@ -2,13 +2,16 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using WebApiTemplate.Core;
 using WebApiTemplate.Core.Common;
+using WebApiTemplate.Core.Persistence;
 
 namespace WebApiTemplate.Infrastructure.Persistence;
 
 /// <summary>
 /// Base class for read repositories, backed by EF Core via <see cref="IDbContextFactory{TContext}"/>.
-/// Provides pagination/sorting/search boilerplate; subclasses supply entity-specific search
-/// predicates and sort-field mappings by overriding <see cref="ApplySearch"/>,
+/// Each call opens its own short-lived, no-tracking context — there is no transaction and no unit of
+/// work — so reads are cheap and could be routed to a read replica by pointing the factory's
+/// connection at one. Provides pagination/sorting/search boilerplate; subclasses supply entity-specific
+/// search predicates and sort-field mappings by overriding <see cref="ApplySearch"/>,
 /// <see cref="GetSortSelector"/>, and <see cref="ApplyDefaultSort"/>.
 /// </summary>
 /// <param name="dbContextFactory">The DbContext factory.</param>
@@ -23,16 +26,12 @@ public abstract class ReadRepositoryBase<T>(IDbContextFactory<AppDbContext> dbCo
     protected IDbContextFactory<AppDbContext> DbContextFactory { get; } = dbContextFactory;
 
     /// <inheritdoc />
-    public virtual async Task<T?> GetById(int id, IUnitOfWork? uow = null)
+    public virtual async Task<T?> GetById(int id, CancellationToken cancellationToken = default)
     {
-        if (uow is not null)
-        {
-            var dbContext = ((UnitOfWork)uow).DbContext;
-            return await dbContext.Set<T>().FirstOrDefaultAsync(e => e.Id == id);
-        }
-
-        await using var ctx = await DbContextFactory.CreateDbContextAsync();
-        return await ctx.Set<T>().FirstOrDefaultAsync(e => e.Id == id);
+        await using var ctx = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        return await ctx.Set<T>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -40,22 +39,23 @@ public abstract class ReadRepositoryBase<T>(IDbContextFactory<AppDbContext> dbCo
         string? search,
         string? orderBy,
         int offset,
-        int limit
+        int limit,
+        CancellationToken cancellationToken = default
     )
     {
-        await using var ctx = await DbContextFactory.CreateDbContextAsync();
-        var query = ctx.Set<T>().AsQueryable();
+        await using var ctx = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        var query = ctx.Set<T>().AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = ApplySearch(query, search);
         }
 
-        var total = await query.CountAsync();
+        var total = await query.CountAsync(cancellationToken);
 
         query = ApplySorting(query, orderBy);
 
-        var items = await query.Skip(offset).Take(limit).ToListAsync();
+        var items = await query.Skip(offset).Take(limit).ToListAsync(cancellationToken);
 
         return new PagedResult<T>(items, total);
     }

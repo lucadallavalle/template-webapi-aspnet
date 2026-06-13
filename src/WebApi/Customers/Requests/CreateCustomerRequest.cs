@@ -8,8 +8,9 @@ namespace WebApiTemplate.WebApi.Customers.Requests;
 public class CreateCustomerRequest
 {
     /// <summary>
-    /// Maps the request to a domain entity.
+    /// Maps this request to a domain entity. An instance method so the bound request body is the
+    /// source of the mapping (a real request copies its fields onto the new <see cref="Customer"/>).
     /// </summary>
     /// <returns>The domain entity.</returns>
-    public static Customer ToDomainEntity() => new();
+    public Customer ToDomainEntity() => new();
 }

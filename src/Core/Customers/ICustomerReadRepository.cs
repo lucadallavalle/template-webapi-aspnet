@@ -1,6 +1,8 @@
+using WebApiTemplate.Core.Persistence;
+
 namespace WebApiTemplate.Core.Customers;
 
 /// <summary>
-/// <see cref="Customer"/> repository interface for read operations.
+/// Read repository contract for <see cref="Customer"/> entities. Injected directly into query handlers.
 /// </summary>
-public interface ICustomerReadRepository : IReadRepository<Customer> { }
+public interface ICustomerReadRepository : IReadRepository<Customer>;

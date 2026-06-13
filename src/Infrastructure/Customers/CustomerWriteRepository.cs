@@ -4,13 +4,10 @@ using WebApiTemplate.Infrastructure.Persistence;
 namespace WebApiTemplate.Infrastructure.Customers;
 
 /// <summary>
-/// Repository for writing <see cref="Customer"/> entities.
+/// Write repository for <see cref="Customer"/> entities. Resolved inside the unit of work and bound to
+/// its transactional <see cref="AppDbContext"/>.
 /// </summary>
-public class CustomerWriteRepository : WriteRepositoryBase<Customer>, ICustomerWriteRepository
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CustomerWriteRepository"/> class.
-    /// </summary>
-    public CustomerWriteRepository()
-        : base() { }
-}
+/// <param name="context">The database context bound to the current unit of work.</param>
+public sealed class CustomerWriteRepository(AppDbContext context)
+    : WriteRepositoryBase<Customer, int, AppDbContext>(context),
+        ICustomerWriteRepository;

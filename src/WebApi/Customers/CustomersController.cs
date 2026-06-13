@@ -1,10 +1,10 @@
 using HumbleMediator;
 using Microsoft.AspNetCore.Mvc;
+using WebApiTemplate.Application.Customers;
 using WebApiTemplate.Application.Customers.Commands;
 using WebApiTemplate.Application.Customers.Queries;
 using WebApiTemplate.Core;
 using WebApiTemplate.Core.Common;
-using WebApiTemplate.Core.Customers;
 using WebApiTemplate.WebApi.Common;
 using WebApiTemplate.WebApi.Customers.Requests;
 using WebApiTemplate.WebApi.Customers.Responses;
@@ -27,7 +27,7 @@ public sealed class CustomersController(IMediator mediator) : AppControllerBase(
     public async Task<ActionResult<CustomerCreatedResponse>> Create(CreateCustomerRequest request)
     {
         var id = await _mediator.SendCommand<CreateCustomerCommand, int>(
-            new CreateCustomerCommand(CreateCustomerRequest.ToDomainEntity())
+            new CreateCustomerCommand(request.ToDomainEntity())
         );
         return CreatedAtAction(nameof(GetById), new { id }, new CustomerCreatedResponse(id));
     }
@@ -42,18 +42,18 @@ public sealed class CustomersController(IMediator mediator) : AppControllerBase(
     /// <returns>A 200 OK response with a page of entities and the total count.</returns>
     [HttpGet]
     [Route("")]
-    public async Task<ActionResult<PagedResponse<Customer>>> List(
+    public async Task<ActionResult<PagedResponse<CustomerDto>>> List(
         [FromQuery] string? search,
         [FromQuery] string? orderBy,
         [FromQuery] int offset = 0,
         [FromQuery] int limit = 25
     )
     {
-        var result = await _mediator.SendQuery<ListCustomersQuery, PagedResult<Customer>>(
+        var result = await _mediator.SendQuery<ListCustomersQuery, PagedResult<CustomerDto>>(
             new ListCustomersQuery(search, orderBy, offset, limit)
         );
 
-        return Ok(new PagedResponse<Customer>(result.Items, result.Total, offset, limit));
+        return Ok(new PagedResponse<CustomerDto>(result.Items, result.Total, offset, limit));
     }
 
     /// <summary>
@@ -63,9 +63,9 @@ public sealed class CustomersController(IMediator mediator) : AppControllerBase(
     /// <returns>A 200 OK response with entity data, or a 404 Not Found response if the entity does not exist.</returns>
     [HttpGet]
     [Route("{id:int}")]
-    public async Task<ActionResult<Customer>> GetById(int id)
+    public async Task<ActionResult<CustomerDto>> GetById(int id)
     {
-        var result = await _mediator.SendQuery<GetCustomerByIdQuery, Customer?>(
+        var result = await _mediator.SendQuery<GetCustomerByIdQuery, CustomerDto?>(
             new GetCustomerByIdQuery(id)
         );
         if (result is null)
@@ -87,7 +87,7 @@ public sealed class CustomersController(IMediator mediator) : AppControllerBase(
     public async Task<IActionResult> Update(int id, UpdateCustomerRequest request)
     {
         await _mediator.SendCommand<UpdateCustomerCommand, Nothing>(
-            new UpdateCustomerCommand(id, UpdateCustomerRequest.ToDomainEntity())
+            new UpdateCustomerCommand(id, request.ToDomainEntity())
         );
         return NoContent();
     }

@@ -7,14 +7,12 @@ using Npgsql;
 using Serilog;
 using Serilog.Events;
 using SimpleInjector;
-using WebApiTemplate.Application;
 using WebApiTemplate.Application.Customers.Commands;
 using WebApiTemplate.Application.Customers.Queries;
 using WebApiTemplate.Application.Logging;
 using WebApiTemplate.Application.Validation;
-using WebApiTemplate.Core;
 using WebApiTemplate.Core.Customers;
-using WebApiTemplate.Infrastructure.Customers;
+using WebApiTemplate.Core.Persistence;
 using WebApiTemplate.Infrastructure.Persistence;
 
 Log.Logger = new LoggerConfiguration()
@@ -32,6 +30,17 @@ try
 
     // Add services to the container.
     builder.Services.AddControllers();
+
+    // Authentication & authorization are wired into the request pipeline below, but NOT configured:
+    // no authentication scheme is registered, so every request is anonymous and — absent any
+    // [Authorize] attributes — allowed through. Before relying on these for protection, register a
+    // real scheme and policies, e.g.:
+    //   builder.Services
+    //       .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    //       .AddJwtBearer(options => { /* authority, audience, ... */ });
+    // See README → "Configure authentication & authorization".
+    builder.Services.AddAuthentication();
+    builder.Services.AddAuthorization();
 
     // swagger
     builder.Services.AddEndpointsApiExplorer();
@@ -71,7 +80,15 @@ try
     builder.Services.AddNpgsqlDataSource(connString);
 
     Action<IServiceProvider, DbContextOptionsBuilder> dbConfigure = (sp, options) =>
-        options.UseNpgsql(sp.GetRequiredService<NpgsqlDataSource>()).UseSnakeCaseNamingConvention();
+        options
+            .UseNpgsql(
+                sp.GetRequiredService<NpgsqlDataSource>(),
+                // Connection resiliency: retry transient failures. The unit-of-work delegate
+                // (IUnitOfWorkFactory.ExecuteInTransactionAsync) is replayed on a fresh DbContext
+                // per retry attempt, so it must remain idempotent (no non-DB side effects inside).
+                npgsql => npgsql.EnableRetryOnFailure()
+            )
+            .UseSnakeCaseNamingConvention();
 
     // AppDbContext is registered Scoped (the EF Core default) — never Singleton. A
     // DbContext is not thread-safe, so a singleton would be shared across concurrent
@@ -79,13 +96,19 @@ try
     // does not use this registration directly: it creates a fresh context per unit of
     // work from the factory below.
     //
-    // The factory is Scoped (not pooled). A pooled factory is itself a singleton, so it
-    // would have to resolve EF's now-Scoped IDbContextOptionsConfiguration<AppDbContext>
-    // from the root provider, which throws. Keeping the context and its factory both
-    // Scoped aligns the option-configuration lifetimes.
+    // AddPersistence registers the whole persistence stack scanned from the Infrastructure assembly:
+    // the write-side unit-of-work stack (a Scoped IDbContextFactory<AppDbContext>, the
+    // IUnitOfWorkFactory, and the write repositories (WriteRepositoryBase<,,>)), plus the read
+    // repositories (ReadRepositoryBase<>). Read repositories are cross-wired into SimpleInjector
+    // (below), since query handlers resolve from it; they are not unit-of-work bound.
+    //
+    // The factory is Scoped (not pooled). A pooled factory is itself a singleton, so it would have
+    // to resolve EF's now-Scoped IDbContextOptionsConfiguration<AppDbContext> from the root provider,
+    // which throws. Keeping the context and its factory both Scoped aligns the option-configuration
+    // lifetimes. AppDbContext is registered separately (below) for the health check and the
+    // startup-migration scope.
     builder.Services.AddDbContext<AppDbContext>(dbConfigure);
-    builder.Services.AddDbContextFactory<AppDbContext>(dbConfigure, ServiceLifetime.Scoped);
-    builder.Services.AddDistributedMemoryCache();
+    builder.Services.AddPersistence<AppDbContext>(dbConfigure);
 
     // Required by SimpleInjector's ASP.NET Core integration to resolve cross-wired
     // *scoped* services (e.g. IDbContextFactory<AppDbContext>) from the active request's
@@ -111,12 +134,18 @@ try
             // SimpleInjector resolves it from the active request scope. Auto cross-wiring
             // resolves it from the root provider, which trips MS-DI's scope validation.
             options.CrossWire<IDbContextFactory<AppDbContext>>();
+
+            // Command handlers only ever touch IUnitOfWorkFactory (the write persistence graph —
+            // write repositories + RepositoryFactory<> — lives in MS-DI via AddPersistence). It is
+            // Scoped, hence cross-wired (not auto-resolved) like the factory above.
+            options.CrossWire<IUnitOfWorkFactory>();
+
+            // Read repositories are registered in MS-DI by AddPersistence and injected into query
+            // handlers (resolved by this container), so each must be cross-wired. They are Scoped
+            // (they resolve the Scoped IDbContextFactory), hence explicit cross-wiring.
+            options.CrossWire<ICustomerReadRepository>();
         }
     );
-
-    container.Register<ICustomerReadRepository, CustomerReadRepository>();
-    container.Register<ICustomerWriteRepository, CustomerWriteRepository>();
-    container.Register<IUnitOfWorkFactory, UnitOfWorkFactory>();
 
     // validators
     container.Collection.Register(
@@ -136,7 +165,6 @@ try
         typeof(IQueryHandler<,>),
         typeof(QueryHandlerValidationDecorator<,>)
     );
-    container.RegisterDecorator(typeof(IQueryHandler<,>), typeof(QueryHandlerCachingDecorator<,>));
     container.RegisterDecorator(typeof(IQueryHandler<,>), typeof(QueryHandlerLoggingDecorator<,>));
 
     // mediator handlers decorators - commands pipeline
@@ -185,6 +213,10 @@ try
 
     app.MapHealthChecks("/health");
 
+    // Authentication must run before authorization. Both are active but UNCONFIGURED (no scheme is
+    // registered — see the service registration above): until you configure a scheme they do not
+    // protect anything. This template ships them wired so you only have to add the scheme/policies.
+    app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
 

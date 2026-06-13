@@ -1,6 +1,5 @@
 using HumbleMediator;
 using WebApiTemplate.Core.Common;
-using WebApiTemplate.Core.Customers;
 
 namespace WebApiTemplate.Application.Customers.Queries;
 
@@ -16,4 +15,4 @@ public sealed record ListCustomersQuery(
     string? OrderBy,
     int Offset = 0,
     int Limit = 25
-) : IQuery<PagedResult<Customer>>;
+) : IQuery<PagedResult<CustomerDto>>;

@@ -12,6 +12,6 @@ public sealed class GetCustomerByIdQueryValidator : AbstractValidator<GetCustome
     /// </summary>
     public GetCustomerByIdQueryValidator()
     {
-        RuleFor(e => e.Id).Must(e => e > 0);
+        RuleFor(e => e.Id).GreaterThan(0);
     }
 }

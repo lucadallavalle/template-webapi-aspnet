@@ -1,18 +1,16 @@
 using HumbleMediator;
 using WebApiTemplate.Core;
 using WebApiTemplate.Core.Customers;
+using WebApiTemplate.Core.Persistence;
 
 namespace WebApiTemplate.Application.Customers.Commands;
 
 /// <summary>
 /// <see cref="ICommandHandler{TCommand,TCommandResult}"/> implementation for deleting a customer entity.
 /// </summary>
-public class DeleteCustomerCommandHandler(
-    IUnitOfWorkFactory uowFactory,
-    ICustomerWriteRepository repository
-)
-    : CustomerCommandHandlerBase(uowFactory, repository),
-        ICommandHandler<DeleteCustomerCommand, Nothing>
+/// <param name="uowFactory">The unit-of-work factory.</param>
+public sealed class DeleteCustomerCommandHandler(IUnitOfWorkFactory uowFactory)
+    : ICommandHandler<DeleteCustomerCommand, Nothing>
 {
     /// <summary>
     /// Handle the command to delete a customer entity.
@@ -25,9 +23,12 @@ public class DeleteCustomerCommandHandler(
         CancellationToken cancellationToken = default
     )
     {
-        await using var uow = await _uowFactory.Create(cancellationToken);
-        await _repository.Delete(command.Id, uow);
-        await uow.Commit(cancellationToken);
+        await uowFactory.ExecuteInTransactionAsync(
+            (uow, ct) =>
+                uow.GetRepository<ICustomerWriteRepository>().DeleteByIdAsync(command.Id, ct),
+            cancellationToken
+        );
+
         return Nothing.Instance;
     }
 }

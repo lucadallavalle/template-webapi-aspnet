@@ -4,29 +4,25 @@ using WebApiTemplate.Core.Customers;
 namespace WebApiTemplate.Application.Customers.Queries;
 
 /// <summary>
-/// Query to get a <see cref="Customer"/> by its id.
+/// Handles <see cref="GetCustomerByIdQuery"/>. Reads run outside any unit of work, straight through
+/// the read repository.
 /// </summary>
-public class GetCustomerByIdQueryHandler : IQueryHandler<GetCustomerByIdQuery, Customer?>
+/// <param name="customers">The customer read repository.</param>
+public sealed class GetCustomerByIdQueryHandler(ICustomerReadRepository customers)
+    : IQueryHandler<GetCustomerByIdQuery, CustomerDto?>
 {
-    private readonly ICustomerReadRepository _customerReadRepository;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="GetCustomerByIdQueryHandler"/> class.
-    /// </summary>
-    /// <param name="customerReadRepository"></param>
-    public GetCustomerByIdQueryHandler(ICustomerReadRepository customerReadRepository)
-    {
-        _customerReadRepository = customerReadRepository;
-    }
-
     /// <summary>
     /// Handles the <see cref="GetCustomerByIdQuery"/>.
     /// </summary>
     /// <param name="query">The query to handle.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    /// <returns></returns>
-    public Task<Customer?> Handle(
+    /// <param name="cancellationToken">An optional <see cref="CancellationToken" />.</param>
+    /// <returns>The customer DTO, if found; otherwise <see langword="null"/>.</returns>
+    public async Task<CustomerDto?> Handle(
         GetCustomerByIdQuery query,
         CancellationToken cancellationToken = default
-    ) => _customerReadRepository.GetById(query.Id);
+    )
+    {
+        var customer = await customers.GetById(query.Id, cancellationToken);
+        return customer is null ? null : new CustomerDto(customer.Id!.Value);
+    }
 }
